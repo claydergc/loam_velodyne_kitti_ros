@@ -1,11 +1,13 @@
 # loam_velodyne_kitti_ros
-This package is a modified copy of [ROS loam_velodyne](http://docs.ros.org/indigo/api/loam_velodyne/html/files.html) to work with the KITTI dataset.
+This package is a modified copy of the ROS Indigo version of [loam_velodyne](http://docs.ros.org/indigo/api/loam_velodyne/html/files.html) to work with the KITTI dataset.
  
 Main changes have been done in:
  
 scanRegistration.cpp renamed to scanRegistrationKittiROS.cpp
 
 where at the end of this file the KITTI Dataset is published by reading the .bin files and converting it to point cloud data.
+
+Additionally, point clouds from each .bin file are published in a lower rate (4 Hz). This was done because in the experiments done with my computer the original rate of the LiDAR was making the LOAM algorithm drop some point clouds, which resulted in a n incorrect trajectory.
  
 Also, transformToEnd() and transformToStart() functions have been modified since the KITTI Dataset is distorsion free.
 

@@ -21,26 +21,11 @@ $ catkin_make
 ```
 The KITTI dataset folder need to have the following structure:
 
-<<KITTI Dataset Path>>
-|
-|__data_odometry_calib
-|  |
-|  |__dataset
-|     |
-|     |...
-|
-|__data_odometry_poses
-|  |
-|  |__dataset
-|     |
-|     |...
-|
-|__data_odometry_velodyne
-   |
-   |__dataset
-      |
-      |...
-
+  .
+  ├── data_odometry_calib                  
+  ├── data_odometry_poses
+  └── data_odometry_velodyne
+    
 data_odometry_calib contains the files: calib.txt and times.txt for each sequence.
 data_odometry_poses contains the ground truth files for each sequence.
 data_odometry_velodyne contains the .bin files for each sequence.

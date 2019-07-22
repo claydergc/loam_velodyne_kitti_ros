@@ -26,14 +26,15 @@ data_odometry_calib contains the files: calib.txt and times.txt for each sequenc
 data_odometry_poses contains the ground truth files for each sequence.  
 data_odometry_velodyne contains the .bin files for each sequence.  
 
+All previously mentioned folders have inside the same structure as downloaded from the KITTI website.
+
+
 How to build:
 
 ```
 $ cd catkin_ws
 $ catkin_make
 ```
-
-All previously mentioned folders have the same structure as downloaded from the KITTI website.
 
 Running:
 ```

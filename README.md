@@ -1,5 +1,5 @@
 # loam_velodyne_kitti_ros
-This package is a modified copy of the ROS Indigo version of [loam_velodyne](http://docs.ros.org/indigo/api/loam_velodyne/html/files.html) to work with the KITTI dataset.
+This package is a modified copy of the ROS Indigo version of [loam_velodyne](http://docs.ros.org/indigo/api/loam_velodyne/html/files.html) to function with the KITTI dataset.
  
 Main changes have been done in:
  

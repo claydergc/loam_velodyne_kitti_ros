@@ -21,6 +21,15 @@ $ catkin_make
 ```
 The KITTI dataset folder need to have the following structure:
 
+.
+    ├── build                   # Compiled files (alternatively `dist`)
+    ├── docs                    # Documentation files (alternatively `doc`)
+    ├── src                     # Source files (alternatively `lib` or `app`)
+    ├── test                    # Automated tests (alternatively `spec` or `tests`)
+    ├── tools                   # Tools and utilities
+    ├── LICENSE
+    └── README.md
+
   .
   ├── data_odometry_calib                  
   ├── data_odometry_poses

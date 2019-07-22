@@ -22,16 +22,16 @@ Before building the project, it is important to consider the KITTI Dataset file 
 └── data_odometry_velodyne
 ```
 
+data_odometry_calib contains the files: calib.txt and times.txt for each sequence.  
+data_odometry_poses contains the ground truth files for each sequence.  
+data_odometry_velodyne contains the .bin files for each sequence.  
+
 How to build:
 
 ```
 $ cd catkin_ws
 $ catkin_make
 ```
-    
-data_odometry_calib contains the files: calib.txt and times.txt for each sequence.  
-data_odometry_poses contains the ground truth files for each sequence.  
-data_odometry_velodyne contains the .bin files for each sequence.  
 
 All previously mentioned folders have the same structure as downloaded from the KITTI website.
 

@@ -13,20 +13,20 @@ Also, transformToEnd() and transformToStart() functions have been modified since
 
 The separation of the Velodyne HDL-64's rings have been done according to [laboshinl's code](https://github.com/laboshinl/loam_velodyne)
 
-How to build:
-
-```
-$ cd catkin_ws
-$ catkin_make
-```
-The KITTI dataset folder need to have the following structure:
-
+Before building the project, it is important to consider the KITTI Dataset file structure. All the KITTI dataset need to be in a same folder. This folder should have the following structure:
 
 ```bash
 .
 ├── data_odometry_calib                  
 ├── data_odometry_poses
 └── data_odometry_velodyne
+```
+
+How to build:
+
+```
+$ cd catkin_ws
+$ catkin_make
 ```
     
 data_odometry_calib contains the files: calib.txt and times.txt for each sequence.  

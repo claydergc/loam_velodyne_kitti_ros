@@ -4,6 +4,8 @@
 
   <node pkg="loam_velodyne_kitti_ros" type="scanRegistrationKittiRos" name="scanRegistrationKittiRos" args="/home/claydergc/KITTIBenchmark 00" output="screen"/>
 
+  <!--<node pkg="loam_velodyne_kitti_ros" type="scanRegistrationKittiRos" name="scanRegistrationKittiRos" output="screen"/>-->
+
   <node pkg="loam_velodyne_kitti_ros" type="laserOdometryKittiRos" name="laserOdometryKittiRos" output="screen" respawn="true">
   </node>
 

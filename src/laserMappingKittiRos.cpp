@@ -1,4 +1,4 @@
-// Copyright 2013, Ji Zhang, Carnegie Mellon University
+  // Copyright 2013, Ji Zhang, Carnegie Mellon University
 // Further contributions copyright (c) 2016, Southwest Research Institute
 // All rights reserved.
 //
@@ -30,7 +30,11 @@
 //   J. Zhang and S. Singh. LOAM: Lidar Odometry and Mapping in Real-time.
 //     Robotics: Science and Systems Conference (RSS). Berkeley, CA, July 2014.
 
-#include <math.h>
+#include <cmath>
+#include <iostream>
+#include <cstdlib>
+#include <string>
+#include <fstream>
 
 #include <loam_velodyne_kitti_ros/common.h>
 #include <nav_msgs/Odometry.h>
@@ -63,9 +67,11 @@ bool newLaserOdometry = false;
 
 int laserCloudCenWidth = 10;
 int laserCloudCenHeight = 5;
+//int laserCloudCenHeight = 10;
 int laserCloudCenDepth = 10;
 const int laserCloudWidth = 21;
 const int laserCloudHeight = 11;
+//const int laserCloudHeight = 21;
 const int laserCloudDepth = 21;
 const int laserCloudNum = laserCloudWidth * laserCloudHeight * laserCloudDepth;
 
@@ -106,6 +112,9 @@ const int imuQueLength = 200;
 double imuTime[imuQueLength] = {0};
 float imuRoll[imuQueLength] = {0};
 float imuPitch[imuQueLength] = {0};
+
+bool flag = false; //added to see how many messages are dropped
+int droppedMessages = 0;
 
 void transformAssociateToMap()
 {
@@ -273,6 +282,16 @@ void laserCloudCornerLastHandler(const sensor_msgs::PointCloud2ConstPtr& laserCl
 {
   timeLaserCloudCornerLast = laserCloudCornerLast2->header.stamp.toSec();
 
+  //ROS_INFO("Time corner sharp 1: %f\n", timeLaserCloudCornerLast);
+  //ROS_INFO("Dropped messages: %d\n", droppedMessages);
+
+  //if(flag==true)
+  //{
+  //  droppedMessages++;
+  //}
+
+  flag = true;
+
   laserCloudCornerLast->clear();
   pcl::fromROSMsg(*laserCloudCornerLast2, *laserCloudCornerLast);
 
@@ -334,8 +353,10 @@ void imuHandler(const sensor_msgs::Imu::ConstPtr& imuIn)
 
 int main(int argc, char** argv)
 {
-  ros::init(argc, argv, "laserMapping");
+  ros::init(argc, argv, "laserMappingKittiRos");
   ros::NodeHandle nh;
+
+  //std::ofstream lmIterationsLaserMapping = std::ofstream("/home/claydergc/originalLOAMLMIterations_LM00.txt");
 
   ros::Subscriber subLaserCloudCornerLast = nh.subscribe<sensor_msgs::PointCloud2>
                                             ("/laser_cloud_corner_last", 2, laserCloudCornerLastHandler);
@@ -358,6 +379,29 @@ int main(int argc, char** argv)
                                         ("/velodyne_cloud_registered", 2);
 
   ros::Publisher pubOdomAftMapped = nh.advertise<nav_msgs::Odometry> ("/aft_mapped_to_init", 5);
+
+  /*ros::Subscriber subLaserCloudCornerLast = nh.subscribe<sensor_msgs::PointCloud2>
+                                            ("/laser_cloud_corner_last", 1, laserCloudCornerLastHandler);
+
+  ros::Subscriber subLaserCloudSurfLast = nh.subscribe<sensor_msgs::PointCloud2>
+                                          ("/laser_cloud_surf_last", 1, laserCloudSurfLastHandler);
+
+  ros::Subscriber subLaserOdometry = nh.subscribe<nav_msgs::Odometry> 
+                                     ("/laser_odom_to_init", 1, laserOdometryHandler);
+
+  ros::Subscriber subLaserCloudFullRes = nh.subscribe<sensor_msgs::PointCloud2> 
+                                         ("/velodyne_cloud_3", 1, laserCloudFullResHandler);
+
+  ros::Subscriber subImu = nh.subscribe<sensor_msgs::Imu> ("/imu/data", 50, imuHandler);
+
+  ros::Publisher pubLaserCloudSurround = nh.advertise<sensor_msgs::PointCloud2> 
+                                         ("/laser_cloud_surround", 1);
+
+  ros::Publisher pubLaserCloudFullRes = nh.advertise<sensor_msgs::PointCloud2> 
+                                        ("/velodyne_cloud_registered", 1);
+
+  ros::Publisher pubOdomAftMapped = nh.advertise<nav_msgs::Odometry> ("/aft_mapped_to_init", 1);*/
+
   nav_msgs::Odometry odomAftMapped;
   odomAftMapped.header.frame_id = "/camera_init";
   odomAftMapped.child_frame_id = "/aft_mapped";
@@ -401,7 +445,14 @@ int main(int argc, char** argv)
 
   int frameCount = stackFrameNum - 1;
   int mapFrameCount = mapFrameNum - 1;
-  ros::Rate rate(100);
+  //ros::Rate rate(100);
+  //ros::Rate rate(0.2);//NO TOCAR corre bien
+  ros::Rate rate(0.4); //NO TOCAR corre mas bien
+  //ros::Rate rate(0.5); //mas o menos
+  //ros::Rate rate(1); //
+  //ros::Rate rate(0.17);
+  //ros::Rate rate(0.12);
+  //ros::Rate rate(1.0);
   //ros::Rate rate(6);
   bool status = ros::ok();
   while (status) {
@@ -409,14 +460,24 @@ int main(int argc, char** argv)
 
     //ROS_INFO("Time laser odometry: %f\n", timeLaserOdometry);
 
-    if (newLaserCloudCornerLast && newLaserCloudSurfLast && newLaserCloudFullRes && newLaserOdometry &&
-        fabs(timeLaserCloudCornerLast - timeLaserOdometry) < 0.005 &&
-        fabs(timeLaserCloudSurfLast - timeLaserOdometry) < 0.005 &&
-        fabs(timeLaserCloudFullRes - timeLaserOdometry) < 0.005) {
+    /*if (fabs(timeLaserCloudCornerLast - timeLaserOdometry) > 0.005 &&
+        fabs(timeLaserCloudSurfLast - timeLaserOdometry) > 0.005 &&
+        fabs(timeLaserCloudFullRes - timeLaserOdometry) > 0.005)
+        std::cout<<"Synchronization error!!"<<std::endl;*/
+
+    //if (newLaserCloudCornerLast && newLaserCloudSurfLast && newLaserCloudFullRes && newLaserOdometry &&
+    //    fabs(timeLaserCloudCornerLast - timeLaserOdometry) < 0.005 &&
+    //    fabs(timeLaserCloudSurfLast - timeLaserOdometry) < 0.005 &&
+    //    fabs(timeLaserCloudFullRes - timeLaserOdometry) < 0.005) { //Aquí depende del rate de publicacion
+    if (newLaserCloudCornerLast && newLaserCloudSurfLast && newLaserCloudFullRes && newLaserOdometry ) {
+      
       newLaserCloudCornerLast = false;
       newLaserCloudSurfLast = false;
       newLaserCloudFullRes = false;
       newLaserOdometry = false;
+
+      //ROS_INFO("Time corner sharp 2: %f\n", timeLaserCloudCornerLast);
+      //flag = false;
 
       frameCount++;
       if (frameCount >= stackFrameNum) {
@@ -444,6 +505,7 @@ int main(int argc, char** argv)
         pointOnYAxis.z = 0.0;
         pointAssociateToMap(&pointOnYAxis, &pointOnYAxis);
 
+        //Definen la cantidad de puntos que muestra el mapa acumulado. Eso se muestra en un cubo de 25 m^3
         int centerCubeI = int((transformTobeMapped[3] + 25.0) / 50.0) + laserCloudCenWidth;
         int centerCubeJ = int((transformTobeMapped[4] + 25.0) / 50.0) + laserCloudCenHeight;
         int centerCubeK = int((transformTobeMapped[5] + 25.0) / 50.0) + laserCloudCenDepth;
@@ -704,14 +766,17 @@ int main(int argc, char** argv)
         laserCloudCornerStack2->clear();
         laserCloudSurfStack2->clear();
 
-        if (laserCloudCornerFromMapNum > 10 && laserCloudSurfFromMapNum > 100) {
+        //if (laserCloudCornerFromMapNum > 10 && laserCloudSurfFromMapNum > 100) {
+        if (laserCloudCornerFromMapNum > 40 && laserCloudSurfFromMapNum > 400) {
           kdtreeCornerFromMap->setInputCloud(laserCloudCornerFromMap);
           kdtreeSurfFromMap->setInputCloud(laserCloudSurfFromMap);
 
           for (int iterCount = 0; iterCount < 10; iterCount++) {
+          //for (int iterCount = 0; iterCount < 20; iterCount++) {
             laserCloudOri->clear();
             coeffSel->clear();
 
+            //Sharp features
             for (int i = 0; i < laserCloudCornerStackNum; i++) {
               pointOri = laserCloudCornerStack->points[i];
               pointAssociateToMap(&pointOri, &pointSel);
@@ -805,13 +870,16 @@ int main(int argc, char** argv)
                   pointProj.z -= lc * ld2;
 
                   float s = 1 - 0.9 * fabs(ld2);
+                  //float s = 1 - 1.8 * fabs(ld2);
 
                   coeff.x = s * la;
                   coeff.y = s * lb;
                   coeff.z = s * lc;
                   coeff.intensity = s * ld2;
 
-                  if (s > 0.1) {
+                  if (s > 0.1) { //NO TOCAR corre bien
+                  //if (s > 0.2) {
+                  //if (s > 0.05) {
                     laserCloudOri->push_back(pointOri);
                     coeffSel->push_back(coeff);
                   }
@@ -819,6 +887,7 @@ int main(int argc, char** argv)
               }
             }
 
+            //Flat features
             for (int i = 0; i < laserCloudSurfStackNum; i++) {
               pointOri = laserCloudSurfStack->points[i];
               pointAssociateToMap(&pointOri, &pointSel); 
@@ -863,13 +932,17 @@ int main(int argc, char** argv)
 
                   float s = 1 - 0.9 * fabs(pd2) / sqrt(sqrt(pointSel.x * pointSel.x
                           + pointSel.y * pointSel.y + pointSel.z * pointSel.z));
+                  //float s = 1 - 1.8 * fabs(pd2) / sqrt(sqrt(pointSel.x * pointSel.x
+                  //        + pointSel.y * pointSel.y + pointSel.z * pointSel.z));
 
                   coeff.x = s * pa;
                   coeff.y = s * pb;
                   coeff.z = s * pc;
                   coeff.intensity = s * pd2;
 
-                  if (s > 0.1) {
+                  if (s > 0.1) { //NO TOCAR corre bien
+                  //if (s > 0.2) {
+                  //if (s > 0.05) {
                     laserCloudOri->push_back(pointOri);
                     coeffSel->push_back(coeff);
                   }
@@ -885,7 +958,8 @@ int main(int argc, char** argv)
             float crz = cos(transformTobeMapped[2]);
 
             int laserCloudSelNum = laserCloudOri->points.size();
-            if (laserCloudSelNum < 50) {
+            //if (laserCloudSelNum < 50) {
+            if (laserCloudSelNum < 200) {
               continue;
             }
 
@@ -919,6 +993,7 @@ int main(int argc, char** argv)
               matA.at<float>(i, 4) = coeff.y;
               matA.at<float>(i, 5) = coeff.z;
               matB.at<float>(i, 0) = -coeff.intensity;
+              //matB.at<float>(i, 0) = -5 * coeff.intensity;
             }
             cv::transpose(matA, matAt);
             matAtA = matAt * matA;
@@ -971,7 +1046,8 @@ int main(int argc, char** argv)
                                 pow(matX.at<float>(5, 0) * 100, 2));
 
             if (deltaR < 0.05 && deltaT < 0.05) {
-              break;
+              //lmIterationsLaserMapping<<timeLaserCloudCornerLast<<" "<<iterCount<<"\n";
+              break;          
             }
           }
 
@@ -1086,6 +1162,12 @@ int main(int argc, char** argv)
         odomAftMapped.twist.twist.linear.x = transformBefMapped[3];
         odomAftMapped.twist.twist.linear.y = transformBefMapped[4];
         odomAftMapped.twist.twist.linear.z = transformBefMapped[5];
+        /*odomAftMapped.twist.twist.angular.x = 0;
+        odomAftMapped.twist.twist.angular.y = 0;
+        odomAftMapped.twist.twist.angular.z = 0;
+        odomAftMapped.twist.twist.linear.x = 0;
+        odomAftMapped.twist.twist.linear.y = 0;
+        odomAftMapped.twist.twist.linear.z = 0;*/
         pubOdomAftMapped.publish(odomAftMapped);
 
         aftMappedTrans.stamp_ = ros::Time().fromSec(timeLaserOdometry);
@@ -1100,6 +1182,8 @@ int main(int argc, char** argv)
     status = ros::ok();
     rate.sleep();
   }
+
+  //lmIterationsLaserMapping.close();
 
   return 0;
 }

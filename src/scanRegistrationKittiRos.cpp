@@ -56,6 +56,9 @@
 #include <unistd.h>
 #include <signal.h>
 
+
+using namespace std;
+
 using std::sin;
 using std::cos;
 using std::atan2;
@@ -468,6 +471,8 @@ void extractFeatures(pcl::PointCloud<PointType>::Ptr laserCloud,
 
 }
 
+//ofstream featuresNumber;
+
 //void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
 void laserCloudHandler(pcl::PointCloud<pcl::PointXYZ> laserCloudIn, double timeScanCur)
 {
@@ -483,20 +488,20 @@ void laserCloudHandler(pcl::PointCloud<pcl::PointXYZ> laserCloudIn, double timeS
   //std::vector<int> scanEndInd(N_SCANS, 0);
 
   ros::Time stamp(timeScanCur);
-  //ros::Time stamp;
 
   //double timeScanCur = laserCloudMsg->header.stamp.toSec();
   //pcl::PointCloud<pcl::PointXYZ> laserCloudIn;
   //pcl::fromROSMsg(*laserCloudMsg, laserCloudIn);
+  
   std::vector<int> indices;
   pcl::removeNaNFromPointCloud(laserCloudIn, laserCloudIn, indices);
   int cloudSize = laserCloudIn.points.size();
 
   //std::cout<<"Tamanio"<<cloudSize<<std::endl;
 
-  float startOri = -atan2(laserCloudIn.points[0].y, laserCloudIn.points[0].x);
+  float startOri = -atan2(laserCloudIn.points[0].y, laserCloudIn.points[0].x); //start Orientation
   float endOri = -atan2(laserCloudIn.points[cloudSize - 1].y,
-                        laserCloudIn.points[cloudSize - 1].x) + 2 * M_PI;
+                        laserCloudIn.points[cloudSize - 1].x) + 2 * M_PI; //end Orientation
 
   if (endOri - startOri > 3 * M_PI) {
     endOri -= 2 * M_PI;
@@ -513,9 +518,9 @@ void laserCloudHandler(pcl::PointCloud<pcl::PointXYZ> laserCloudIn, double timeS
     point.z = laserCloudIn.points[i].x;
 
     // skip NaN and INF valued points
-    if (!pcl_isfinite(point.x) ||
-        !pcl_isfinite(point.y) ||
-        !pcl_isfinite(point.z)) {
+    if (!std::isfinite(point.x) ||
+        !std::isfinite(point.y) ||
+        !std::isfinite(point.z)) {
       continue;
     }
 
@@ -668,8 +673,36 @@ void laserCloudHandler(pcl::PointCloud<pcl::PointXYZ> laserCloudIn, double timeS
   pcl::PointCloud<PointType> surfPointsLessFlat;
 
   extractFeatures(laserCloud, cloudSize, cornerPointsSharp, cornerPointsLessSharp, surfPointsFlat, surfPointsLessFlat);
+  
+  //to see how affects the decrease of number of features
+  /*pcl::PointCloud<PointType> cornerPointsSharpAux;
+  pcl::PointCloud<PointType> cornerPointsLessSharpAux;
+
+  //for(int i=0; i<cornerPointsSharp.size(); ++i)
+  int a = 0;
+  int b = 0;
+
+  while(a<cornerPointsSharp.size())
+  {
+  		cornerPointsSharpAux.push_back(cornerPointsSharp.points[a]);
+
+      a += (b%2)+1;
+      b++;
+  }
+
+  for(int i=0; i<cornerPointsLessSharp.size(); ++i)
+  {
+  	if(i%6==0)
+  		cornerPointsLessSharpAux.push_back(cornerPointsLessSharp.points[i]);
+  }
+
+  cornerPointsSharp = cornerPointsSharpAux;
+  cornerPointsLessSharp = cornerPointsLessSharpAux;*/
+
   //std::cout<<"Sharp points: "<<cornerPointsSharp.size()<<std::endl;
   //std::cout<<"Less sharp points: "<<cornerPointsLessSharp.size()<<std::endl;
+
+  //featuresNumber<<cornerPointsSharp.size()<<" "<<cornerPointsLessSharp.size()<<"\n";
 
 
   sensor_msgs::PointCloud2 laserCloudOutMsg;
@@ -779,7 +812,7 @@ void my_handler(int s){
 
 int main(int argc, char** argv)
 {
-  ros::init(argc, argv, "scanRegistration");
+  ros::init(argc, argv, "scanRegistrationKittiRos");
   ros::NodeHandle nh;
 
   struct sigaction sigIntHandler;
@@ -787,6 +820,8 @@ int main(int argc, char** argv)
   sigemptyset(&sigIntHandler.sa_mask);
   sigIntHandler.sa_flags = 0;
   sigaction(SIGINT, &sigIntHandler, NULL);
+
+  //featuresNumber = ofstream("/home/claydergc/loamFeaturesNumber04.txt");
 
   //std::cout<<"HolaMundo\n";
 
@@ -811,6 +846,26 @@ int main(int argc, char** argv)
                                            ("/laser_cloud_less_flat", 2);
 
   pubImuTrans = nh.advertise<sensor_msgs::PointCloud2> ("/imu_trans", 5);
+
+  /*ros::Subscriber subImu = nh.subscribe<sensor_msgs::Imu> ("/imu/data", 50, imuHandler);
+
+  pubLaserCloud = nh.advertise<sensor_msgs::PointCloud2>
+                                 ("/velodyne_cloud_2", 1);
+
+  pubCornerPointsSharp = nh.advertise<sensor_msgs::PointCloud2>
+                                        ("/laser_cloud_sharp", 1);
+
+  pubCornerPointsLessSharp = nh.advertise<sensor_msgs::PointCloud2>
+                                            ("/laser_cloud_less_sharp", 1);
+
+  pubSurfPointsFlat = nh.advertise<sensor_msgs::PointCloud2>
+                                       ("/laser_cloud_flat", 1);
+
+  pubSurfPointsLessFlat = nh.advertise<sensor_msgs::PointCloud2>
+                                           ("/laser_cloud_less_flat", 1);
+
+  pubImuTrans = nh.advertise<sensor_msgs::PointCloud2> ("/imu_trans", 5);*/
+
 
 
 
@@ -841,9 +896,18 @@ int main(int argc, char** argv)
   std::string timeStr;
   double time;
 
-  ros::Rate r(2); // 10 hz
+  
+  //ros::Rate r(2); // A 2 Hz funciona. Mapea bien!!
+  ros::Rate r(4); // A 4 Hz funciona mejor. Mapea bien!!
+  //ros::Rate r(5); // Mas o menos
+  //ros::Rate r(10); // Mas o menos
+  //ros::Rate r(1.7); // 10 hz
+  //ros::Rate r(1.5); // 10 hz
+  //ros::Rate r(1.2); // 10 hz
+  //ros::Rate r(4); // 10 hz
 
   while(stream!=NULL)//read all .bin files in a sequence
+  //while(currentFrame < 1460)
   {
 	  num = fread(data,sizeof(float),num,stream)/4;
 
@@ -860,9 +924,16 @@ int main(int argc, char** argv)
 	  }
 
 	  getline (timesFile,timeStr);
+    //std::cout<<"Time: "<<timeStr<<std::endl;
+
+    //if( timeStr.compare("1.509437e+02") ==0 )
+      //break;
+
 	  time = std::stof(timeStr);
 
 	  laserCloudHandler(cloud, (double)(time));
+
+    //std::cout<<"CF: "<<currentFrame<<std::endl;
 
 	  //reset variables to read a new sweep
 	  fclose(stream);
@@ -884,7 +955,9 @@ int main(int argc, char** argv)
 
   free(data);
 
-  ros::spin();
+  //ros::spin();
+
+  //featuresNumber.close();
 
   return 0;
 }

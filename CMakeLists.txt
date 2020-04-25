@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(loam_velodyne_kitti_ros)
 
-if(NOT DEFINED CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 14)
-endif()
+#if(NOT DEFINED CMAKE_CXX_STANDARD)
+#  set(CMAKE_CXX_STANDARD 14)
+#endif()
 
 find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
@@ -14,7 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   tf)
 
-find_package(PCL 1.8 REQUIRED)
+find_package(PCL 1.9 REQUIRED)
 find_package(OpenCV REQUIRED)
 
 include_directories(

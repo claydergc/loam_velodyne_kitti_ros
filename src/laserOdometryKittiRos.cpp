@@ -31,6 +31,10 @@
 //     Robotics: Science and Systems Conference (RSS). Berkeley, CA, July 2014.
 
 #include <cmath>
+#include <iostream>
+#include <cstdlib>
+#include <string>
+#include <fstream>
 
 #include <loam_velodyne_kitti_ros/common.h>
 #include <nav_msgs/Odometry.h>
@@ -46,9 +50,11 @@
 #include <tf/transform_datatypes.h>
 #include <tf/transform_broadcaster.h>
 
+
 const float scanPeriod = 0.1;
 
-const int skipFrameNum = 1;
+const int skipFrameNum = 1; //NO TOCAR corre bien
+//const int skipFrameNum = 0;
 bool systemInited = false;
 
 double timeCornerPointsSharp = 0;
@@ -97,6 +103,12 @@ float imuRollStart = 0, imuPitchStart = 0, imuYawStart = 0;
 float imuRollLast = 0, imuPitchLast = 0, imuYawLast = 0;
 float imuShiftFromStartX = 0, imuShiftFromStartY = 0, imuShiftFromStartZ = 0;
 float imuVeloFromStartX = 0, imuVeloFromStartY = 0, imuVeloFromStartZ = 0;
+
+bool flag = false; //added to see how many messages are dropped.
+//Sirve para sincronizar el laserCloudSharpHandler() con el if (newCornerPointsSharp... 
+//En teoria por cada llegada de un message a laserCloudSharpHandler() deberia activare el if(newCornerPointsSharp... 
+//Si los mensajes llegan a laserCloudSharpHandler() y estos no se procesan. Entonces se esta saltando messages.
+int droppedMessages = 0;
 
 void TransformToStart(PointType const * const pi, PointType * const po)
 {
@@ -277,7 +289,16 @@ void laserCloudSharpHandler(const sensor_msgs::PointCloud2ConstPtr& cornerPoints
 {
   timeCornerPointsSharp = cornerPointsSharp2->header.stamp.toSec();
 
-  //ROS_INFO("Time corner sharp: %f\n", timeCornerPointsSharp);
+  //ROS_INFO("Time corner sharp 1: %f\n", timeCornerPointsSharp);
+  //ROS_INFO("Dropped messages: %d\n", droppedMessages);
+
+  if(flag==true)
+  {
+    droppedMessages++;
+    //ROS_INFO("Dropped messages: %d\n", droppedMessages);
+  }
+
+  flag = true;
 
   cornerPointsSharp->clear();
   pcl::fromROSMsg(*cornerPointsSharp2, *cornerPointsSharp);
@@ -359,8 +380,10 @@ void imuTransHandler(const sensor_msgs::PointCloud2ConstPtr& imuTrans2)
 
 int main(int argc, char** argv)
 {
-  ros::init(argc, argv, "laserOdometry");
+  ros::init(argc, argv, "laserOdometryKittiRos");
   ros::NodeHandle nh;
+
+  //std::ofstream lmIterationsLaserOdometry = std::ofstream("/home/claydergc/originalLOAMLMIterations_LO00.txt");
 
   ros::Subscriber subCornerPointsSharp = nh.subscribe<sensor_msgs::PointCloud2>
                                          ("/laser_cloud_sharp", 2, laserCloudSharpHandler);
@@ -390,6 +413,36 @@ int main(int argc, char** argv)
                                         ("/velodyne_cloud_3", 2);
 
   ros::Publisher pubLaserOdometry = nh.advertise<nav_msgs::Odometry> ("/laser_odom_to_init", 5);
+
+  /*ros::Subscriber subCornerPointsSharp = nh.subscribe<sensor_msgs::PointCloud2>
+                                         ("/laser_cloud_sharp", 1, laserCloudSharpHandler);
+
+  ros::Subscriber subCornerPointsLessSharp = nh.subscribe<sensor_msgs::PointCloud2>
+                                             ("/laser_cloud_less_sharp", 1, laserCloudLessSharpHandler);
+
+  ros::Subscriber subSurfPointsFlat = nh.subscribe<sensor_msgs::PointCloud2>
+                                      ("/laser_cloud_flat", 1, laserCloudFlatHandler);
+
+  ros::Subscriber subSurfPointsLessFlat = nh.subscribe<sensor_msgs::PointCloud2>
+                                          ("/laser_cloud_less_flat", 1, laserCloudLessFlatHandler);
+
+  ros::Subscriber subLaserCloudFullRes = nh.subscribe<sensor_msgs::PointCloud2>
+                                         ("/velodyne_cloud_2", 1, laserCloudFullResHandler);
+
+  ros::Subscriber subImuTrans = nh.subscribe<sensor_msgs::PointCloud2>
+                                ("/imu_trans", 1, imuTransHandler);
+
+  ros::Publisher pubLaserCloudCornerLast = nh.advertise<sensor_msgs::PointCloud2>
+                                           ("/laser_cloud_corner_last", 1);
+
+  ros::Publisher pubLaserCloudSurfLast = nh.advertise<sensor_msgs::PointCloud2>
+                                         ("/laser_cloud_surf_last", 1);
+
+  ros::Publisher pubLaserCloudFullRes = nh.advertise<sensor_msgs::PointCloud2>
+                                        ("/velodyne_cloud_3", 1);
+
+  ros::Publisher pubLaserOdometry = nh.advertise<nav_msgs::Odometry> ("/laser_odom_to_init", 1);*/
+
   nav_msgs::Odometry laserOdometry;
   laserOdometry.header.frame_id = "/camera_init";
   laserOdometry.child_frame_id = "/laser_odom";
@@ -408,18 +461,32 @@ int main(int argc, char** argv)
   cv::Mat matP(6, 6, CV_32F, cv::Scalar::all(0));
 
   int frameCount = skipFrameNum;
-  ros::Rate rate(100);
+  ros::Rate rate(100); //NO TOCAR funciona bien
+  //ros::Rate rate(10); //corre mal
+  //ros::Rate rate(4); //
+  //ros::Rate rate(1.7);
+  //ros::Rate rate(2);
   bool status = ros::ok();
+
   while (status) {
     ros::spinOnce();
 
-    if (newCornerPointsSharp && newCornerPointsLessSharp && newSurfPointsFlat &&
+    /*if (fabs(timeCornerPointsSharp - timeSurfPointsLessFlat) < 0.005 ||
+        fabs(timeCornerPointsLessSharp - timeSurfPointsLessFlat) < 0.005 ||
+        fabs(timeSurfPointsFlat - timeSurfPointsLessFlat) < 0.005 ||
+        fabs(timeLaserCloudFullRes - timeSurfPointsLessFlat) < 0.005 ||
+        fabs(timeImuTrans - timeSurfPointsLessFlat) < 0.005)
+        std::cout<<"Laser Odometry Synchronization error!!"<<std::endl;*/
+
+    /*if (newCornerPointsSharp && newCornerPointsLessSharp && newSurfPointsFlat &&
         newSurfPointsLessFlat && newLaserCloudFullRes && newImuTrans &&
         fabs(timeCornerPointsSharp - timeSurfPointsLessFlat) < 0.005 &&
         fabs(timeCornerPointsLessSharp - timeSurfPointsLessFlat) < 0.005 &&
         fabs(timeSurfPointsFlat - timeSurfPointsLessFlat) < 0.005 &&
         fabs(timeLaserCloudFullRes - timeSurfPointsLessFlat) < 0.005 &&
-        fabs(timeImuTrans - timeSurfPointsLessFlat) < 0.005) {
+        fabs(timeImuTrans - timeSurfPointsLessFlat) < 0.005) {//Aquí depende del rate de publicacion*/
+    if (newCornerPointsSharp && newCornerPointsLessSharp && newSurfPointsFlat &&
+        newSurfPointsLessFlat && newLaserCloudFullRes && newImuTrans) {
       newCornerPointsSharp = false;
       newCornerPointsLessSharp = false;
       newSurfPointsFlat = false;
@@ -427,7 +494,8 @@ int main(int argc, char** argv)
       newLaserCloudFullRes = false;
       newImuTrans = false;
 
-      //ROS_INFO("Time corner sharp: %f\n", timeCornerPointsSharp);
+      //ROS_INFO("Time corner sharp 2: %f\n", timeCornerPointsSharp);
+      flag = false;
 
       if (!systemInited) {
         pcl::PointCloud<PointType>::Ptr laserCloudTemp = cornerPointsLessSharp;
@@ -464,28 +532,39 @@ int main(int argc, char** argv)
       transform[4] -= imuVeloFromStartY * scanPeriod;
       transform[5] -= imuVeloFromStartZ * scanPeriod;
 
-      if (laserCloudCornerLastNum > 10 && laserCloudSurfLastNum > 100) {
+      //if (laserCloudCornerLastNum > 10 && laserCloudSurfLastNum > 100) {
+      if (laserCloudCornerLastNum > 40 && laserCloudSurfLastNum > 400) {
         std::vector<int> indices;
         pcl::removeNaNFromPointCloud(*cornerPointsSharp,*cornerPointsSharp, indices);
         int cornerPointsSharpNum = cornerPointsSharp->points.size();
         int surfPointsFlatNum = surfPointsFlat->points.size();
         for (int iterCount = 0; iterCount < 25; iterCount++) {
+        //for (int iterCount = 0; iterCount < 35; iterCount++) {
           laserCloudOri->clear();
           coeffSel->clear();
 
           for (int i = 0; i < cornerPointsSharpNum; i++) {
             TransformToStart(&cornerPointsSharp->points[i], &pointSel);
 
-            if (iterCount % 5 == 0) {
+            if (iterCount % 5 == 0) { //NO TOCAR corre bien
+            //if (iterCount % 1 == 0) {
               std::vector<int> indices;
               pcl::removeNaNFromPointCloud(*laserCloudCornerLast,*laserCloudCornerLast, indices);
               kdtreeCornerLast->nearestKSearch(pointSel, 1, pointSearchInd, pointSearchSqDis);
               int closestPointInd = -1, minPointInd2 = -1;
-              if (pointSearchSqDis[0] < 25) {
+              //if (pointSearchSqDis[0] < 25) {
+              //if (pointSearchSqDis[0] < 9) { //empeora
+              //if (pointSearchSqDis[0] < 36) { //NO TOCAR corre bien
+              if (pointSearchSqDis[0] < 30.25) { //NO TOCAR corre bien
+              //if (pointSearchSqDis[0] < 28) { //CORRE MAL
                 closestPointInd = pointSearchInd[0];
                 int closestPointScan = int(laserCloudCornerLast->points[closestPointInd].intensity);
 
-                float pointSqDis, minPointSqDis2 = 25;
+                //float pointSqDis, minPointSqDis2 = 25;
+                //float pointSqDis, minPointSqDis2 = 9; //empeora
+                //float pointSqDis, minPointSqDis2 = 36; //NO TOCAR corre bien
+                float pointSqDis, minPointSqDis2 = 30.25; //NO TOCAR corre bien
+                //float pointSqDis, minPointSqDis2 = 28; //CORRE MAL
                 for (int j = closestPointInd + 1; j < cornerPointsSharpNum; j++) {
                   if (int(laserCloudCornerLast->points[j].intensity) > closestPointScan + 2.5) {
                     break;
@@ -571,15 +650,20 @@ int main(int argc, char** argv)
 
               float s = 1;
               if (iterCount >= 5) {
-                s = 1 - 1.8 * fabs(ld2);
+                s = 1 - 1.8 * fabs(ld2); //NO TOCAR corre bien
+                //s = 1 - 3.6 * fabs(ld2);
               }
+
+              //std::cout<<"s Corner: "<<s<<std::endl;
 
               coeff.x = s * la;
               coeff.y = s * lb;
               coeff.z = s * lc;
               coeff.intensity = s * ld2;
 
-              if (s > 0.1 && ld2 != 0) {
+              if (s > 0.1 && ld2 != 0) { //NO TOCAR corre bien
+              //if (s > 0.2 && ld2 != 0) {
+              //if (s > 0.05 && ld2 != 0) {
                 laserCloudOri->push_back(cornerPointsSharp->points[i]);
                 coeffSel->push_back(coeff);
               }
@@ -589,14 +673,23 @@ int main(int argc, char** argv)
           for (int i = 0; i < surfPointsFlatNum; i++) {
             TransformToStart(&surfPointsFlat->points[i], &pointSel);
 
-            if (iterCount % 5 == 0) {
+            if (iterCount % 5 == 0) { //NO TOCAR corre bien
+            //if (iterCount % 1 == 0) {
               kdtreeSurfLast->nearestKSearch(pointSel, 1, pointSearchInd, pointSearchSqDis);
               int closestPointInd = -1, minPointInd2 = -1, minPointInd3 = -1;
-              if (pointSearchSqDis[0] < 25) {
+              //if (pointSearchSqDis[0] < 25) {
+              //if (pointSearchSqDis[0] < 9) { //empeora
+              //if (pointSearchSqDis[0] < 36) {//NO TOCAR corre bien
+              if (pointSearchSqDis[0] < 30.25) {//NO TOCAR corre bien
+              //if (pointSearchSqDis[0] < 28) { //CORRE MAL
                 closestPointInd = pointSearchInd[0];
                 int closestPointScan = int(laserCloudSurfLast->points[closestPointInd].intensity);
 
-                float pointSqDis, minPointSqDis2 = 25, minPointSqDis3 = 25;
+                //float pointSqDis, minPointSqDis2 = 25, minPointSqDis3 = 25;
+                //float pointSqDis, minPointSqDis2 = 9, minPointSqDis3 = 9; //empeora
+                //float pointSqDis, minPointSqDis2 = 36, minPointSqDis3 = 36;//NO TOCAR corre bien
+                float pointSqDis, minPointSqDis2 = 30.25, minPointSqDis3 = 30.25;//NO TOCAR corre bien
+                //float pointSqDis, minPointSqDis2 = 28, minPointSqDis3 = 28; //CORRE MAL
                 for (int j = closestPointInd + 1; j < surfPointsFlatNum; j++) {
                   if (int(laserCloudSurfLast->points[j].intensity) > closestPointScan + 2.5) {
                     break;
@@ -678,10 +771,12 @@ int main(int argc, char** argv)
               pointProj.y -= pb * pd2;
               pointProj.z -= pc * pd2;
 
-              float s = 1;
-              if (iterCount >= 5) {
-                s = 1 - 1.8 * fabs(pd2) / sqrt(sqrt(pointSel.x * pointSel.x
+              float s = 1.0;
+              if (iterCount >= 5) { //NO TOCAR corre bien
+                s = 1.0 - 1.8 * fabs(pd2) / sqrt(sqrt(pointSel.x * pointSel.x
                   + pointSel.y * pointSel.y + pointSel.z * pointSel.z));
+                //s = 1 - 3.6 * fabs(pd2) / sqrt(sqrt(pointSel.x * pointSel.x
+                //  + pointSel.y * pointSel.y + pointSel.z * pointSel.z));
               }
 
               coeff.x = s * pa;
@@ -689,7 +784,11 @@ int main(int argc, char** argv)
               coeff.z = s * pc;
               coeff.intensity = s * pd2;
 
-              if (s > 0.1 && pd2 != 0) {
+              //std::cout<<"s Surf: "<<s<<std::endl;
+
+              if (s > 0.1 && pd2 != 0) { //NO TOCAR corre bien
+              //if (s > 0.2 && pd2 != 0) {
+              //if (s > 0.05 && pd2 != 0) {
                 laserCloudOri->push_back(surfPointsFlat->points[i]);
                 coeffSel->push_back(coeff);
               }
@@ -697,7 +796,8 @@ int main(int argc, char** argv)
           }
 
           int pointSelNum = laserCloudOri->points.size();
-          if (pointSelNum < 10) {
+          //if (pointSelNum < 10) {
+          if (pointSelNum < 40) { //4 veces 10 por el tipo de sensor
             continue;
           }
 
@@ -762,7 +862,18 @@ int main(int argc, char** argv)
             matA.at<float>(i, 3) = atx;
             matA.at<float>(i, 4) = aty;
             matA.at<float>(i, 5) = atz;
-            matB.at<float>(i, 0) = -0.05 * d2;
+            //matB.at<float>(i, 0) = -0.05 * d2; //0.05 = 1/20Hz
+            //matB.at<float>(i, 0) = -0.01 * d2;
+            //matB.at<float>(i, 0) = -0.25 * d2;
+            //matB.at<float>(i, 0) = -0.5 * d2; //NO TOCAR corre bien
+            matB.at<float>(i, 0) = -0.25 * d2; //NO TOCAR corre mas bien. 0.25 = 1/4Hz
+            //matB.at<float>(i, 0) = -0.2 * d2; //mas o menos
+            //matB.at<float>(i, 0) = -(1.0/1.7) * d2; //bien
+            //matB.at<float>(i, 0) = -(1.0/1.2) * d2; //bien
+            //matB.at<float>(i, 0) = -1 * d2;
+            //matB.at<float>(i, 0) = -0.1 * d2;
+            //matB.at<float>(i, 0) = -0.3333333333333 * d2;
+            //matB.at<float>(i, 0) = -0.3333333333333 * d2;
           }
           cv::transpose(matA, matAt);
           matAtA = matAt * matA;
@@ -819,6 +930,7 @@ int main(int argc, char** argv)
                               pow(matX.at<float>(5, 0) * 100, 2));
 
           if (deltaR < 0.1 && deltaT < 0.1) {
+            //lmIterationsLaserOdometry<<iterCount<<"\n";
             break;
           }
         }
@@ -872,19 +984,19 @@ int main(int argc, char** argv)
       int cornerPointsLessSharpNum = cornerPointsLessSharp->points.size();
       /*for (int i = 0; i < cornerPointsLessSharpNum; i++) {
         TransformToEnd(&cornerPointsLessSharp->points[i], &cornerPointsLessSharp->points[i]);
-      }*/ //commented by claydergc
+      } //commented by claydergc*/
 
       int surfPointsLessFlatNum = surfPointsLessFlat->points.size();
       /*for (int i = 0; i < surfPointsLessFlatNum; i++) {
         TransformToEnd(&surfPointsLessFlat->points[i], &surfPointsLessFlat->points[i]);
-      }*/ //commented by claydergc
+      } //commented by claydergc*/
 
       frameCount++;
       if (frameCount >= skipFrameNum + 1) {
         int laserCloudFullResNum = laserCloudFullRes->points.size();
         /*for (int i = 0; i < laserCloudFullResNum; i++) {
           TransformToEnd(&laserCloudFullRes->points[i], &laserCloudFullRes->points[i]);
-        }*/ //commented by claydergc
+        } //commented by claydergc*/
       }
 
       pcl::PointCloud<PointType>::Ptr laserCloudTemp = cornerPointsLessSharp;
@@ -897,7 +1009,8 @@ int main(int argc, char** argv)
 
       laserCloudCornerLastNum = laserCloudCornerLast->points.size();
       laserCloudSurfLastNum = laserCloudSurfLast->points.size();
-      if (laserCloudCornerLastNum > 10 && laserCloudSurfLastNum > 100) {
+      //if (laserCloudCornerLastNum > 10 && laserCloudSurfLastNum > 100) {
+      if (laserCloudCornerLastNum > 40 && laserCloudSurfLastNum > 400) {
         kdtreeCornerLast->setInputCloud(laserCloudCornerLast);
         kdtreeSurfLast->setInputCloud(laserCloudSurfLast);
       }
@@ -928,6 +1041,8 @@ int main(int argc, char** argv)
     status = ros::ok();
     rate.sleep();
   }
+
+  //lmIterationsLaserOdometry.close();
 
   return 0;
 }

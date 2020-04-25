@@ -46,6 +46,11 @@
 #include <tf/transform_datatypes.h>
 #include <tf/transform_broadcaster.h>
 
+#include <iostream>
+#include <fstream>
+
+using namespace Eigen;
+
 float transformSum[6] = {0};
 float transformIncre[6] = {0};
 float transformMapped[6] = {0};
@@ -56,6 +61,15 @@ ros::Publisher *pubLaserOdometry2Pointer = NULL;
 tf::TransformBroadcaster *tfBroadcaster2Pointer = NULL;
 nav_msgs::Odometry laserOdometry2;
 tf::StampedTransform laserOdometryTrans2;
+
+//nav_msgs::Odometry laserOdometry1;
+
+Eigen::Matrix4f tr;
+Eigen::Matrix4f p0;
+Eigen::Matrix4f currentTransform;
+Eigen::Matrix4f currentTransformProjected;
+Eigen::Matrix3f R;
+std::ofstream odometryOut;
 
 void transformAssociateToMap()
 {
@@ -144,8 +158,15 @@ void transformAssociateToMap()
                      - (-sin(transformMapped[1]) * x2 + cos(transformMapped[1]) * z2);
 }
 
+//double roll, pitch, yaw;
+//geometry_msgs::Quaternion geoQuat;
+//bool newLaserOdometry = false;
+
 void laserOdometryHandler(const nav_msgs::Odometry::ConstPtr& laserOdometry)
 {
+
+  //laserOdometry1 = *laserOdometry;
+  //newLaserOdometry = true;
   double roll, pitch, yaw;
   geometry_msgs::Quaternion geoQuat = laserOdometry->pose.pose.orientation;
   tf::Matrix3x3(tf::Quaternion(geoQuat.z, -geoQuat.x, -geoQuat.y, geoQuat.w)).getRPY(roll, pitch, yaw);
@@ -177,6 +198,28 @@ void laserOdometryHandler(const nav_msgs::Odometry::ConstPtr& laserOdometry)
   laserOdometryTrans2.setRotation(tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w));
   laserOdometryTrans2.setOrigin(tf::Vector3(transformMapped[3], transformMapped[4], transformMapped[5]));
   tfBroadcaster2Pointer->sendTransform(laserOdometryTrans2);
+
+  R = AngleAxisf(-transformMapped[1], Vector3f::UnitZ())
+         * AngleAxisf(-transformMapped[0], Vector3f::UnitY())
+         * AngleAxisf(transformMapped[2], Vector3f::UnitX());
+
+
+  currentTransform<<R(0,0),R(0,1),R(0,2),transformMapped[3],
+                    R(1,0),R(1,1),R(1,2),transformMapped[4],
+                    R(2,0),R(2,1),R(2,2),transformMapped[5],
+                    0.0,0.0,0.0,1.0;
+  
+  //currentTransformProjected = p0 * tr * currentTransform;
+  currentTransformProjected = tr * currentTransform;
+
+  /*currentTransformProjected << R(0,0),R(0,1),R(0,2),transformMapped[3],
+                              R(1,0),R(1,1),R(1,2),transformMapped[4],
+                              R(2,0),R(2,1),R(2,2),transformMapped[5],
+                              0.0,0.0,0.0,1.0;*/
+
+  odometryOut << currentTransformProjected(0,0)<<" "<<currentTransformProjected(0,1) << " " << currentTransformProjected(0,2) << " " << currentTransformProjected(0,3) << " " <<
+	  	           currentTransformProjected(1,0)<<" "<<currentTransformProjected(1,1) << " " << currentTransformProjected(1,2) << " " << currentTransformProjected(1,3) << " " <<
+	  	           currentTransformProjected(2,0)<<" "<<currentTransformProjected(2,1) << " " << currentTransformProjected(2,2) << " " << currentTransformProjected(2,3) << "\n";
 }
 
 void odomAftMappedHandler(const nav_msgs::Odometry::ConstPtr& odomAftMapped)
@@ -204,7 +247,7 @@ void odomAftMappedHandler(const nav_msgs::Odometry::ConstPtr& odomAftMapped)
 
 int main(int argc, char** argv)
 {
-  ros::init(argc, argv, "transformMaintenance");
+  ros::init(argc, argv, "transformMaintenanceKittiRos");
   ros::NodeHandle nh;
 
   ros::Subscriber subLaserOdometry = nh.subscribe<nav_msgs::Odometry> 
@@ -214,6 +257,15 @@ int main(int argc, char** argv)
                                      ("/aft_mapped_to_init", 5, odomAftMappedHandler);
 
   ros::Publisher pubLaserOdometry2 = nh.advertise<nav_msgs::Odometry> ("/integrated_to_init", 5);
+
+  /*ros::Subscriber subLaserOdometry = nh.subscribe<nav_msgs::Odometry> 
+                                     ("/laser_odom_to_init", 1, laserOdometryHandler);
+
+  ros::Subscriber subOdomAftMapped = nh.subscribe<nav_msgs::Odometry> 
+                                     ("/aft_mapped_to_init", 1, odomAftMappedHandler);
+
+  ros::Publisher pubLaserOdometry2 = nh.advertise<nav_msgs::Odometry> ("/integrated_to_init", 1);*/
+
   pubLaserOdometry2Pointer = &pubLaserOdometry2;
   laserOdometry2.header.frame_id = "/camera_init";
   laserOdometry2.child_frame_id = "/camera";
@@ -223,7 +275,66 @@ int main(int argc, char** argv)
   laserOdometryTrans2.frame_id_ = "/camera_init";
   laserOdometryTrans2.child_frame_id_ = "/camera";
 
+  tr << 4.276802385584e-04,-9.999672484946e-01,-8.084491683471e-03,-1.198459927713e-02,
+  	    -7.210626507497e-03,8.081198471645e-03,-9.999413164504e-01,-5.403984729748e-02,
+  	    9.999738645903e-01,4.859485810390e-04,-7.206933692422e-03,-2.921968648686e-01,
+  	    0.0,0.0,0.0,1.0;
+
+  p0 << 7.188560000000e+02,0.000000000000e+00,6.071928000000e+02,0.000000000000e+00,
+        0.000000000000e+00,7.188560000000e+02,1.852157000000e+02,0.000000000000e+00,
+        0.000000000000e+00,0.000000000000e+00,1.000000000000e+00,0.000000000000e+00,
+        0.0,0.0,0.0,1.0;
+
+  odometryOut.open ("/home/claydergc/odometry.txt");
+
+  /*ros::Rate rate(1.6);
+
+  bool status = ros::ok();
+  while (status) {
+    ros::spinOnce();
+
+    if (newLaserOdometry) {
+      newLaserOdometry = false;
+
+      geoQuat = laserOdometry1.pose.pose.orientation;
+      tf::Matrix3x3(tf::Quaternion(geoQuat.z, -geoQuat.x, -geoQuat.y, geoQuat.w)).getRPY(roll, pitch, yaw);
+
+      transformSum[0] = -pitch;
+      transformSum[1] = -yaw;
+      transformSum[2] = roll;
+
+      transformSum[3] = laserOdometry1.pose.pose.position.x;
+      transformSum[4] = laserOdometry1.pose.pose.position.y;
+      transformSum[5] = laserOdometry1.pose.pose.position.z;
+
+      transformAssociateToMap();
+
+      geoQuat = tf::createQuaternionMsgFromRollPitchYaw
+                (transformMapped[2], -transformMapped[0], -transformMapped[1]);
+
+      laserOdometry2.header.stamp = laserOdometry1.header.stamp;
+      laserOdometry2.pose.pose.orientation.x = -geoQuat.y;
+      laserOdometry2.pose.pose.orientation.y = -geoQuat.z;
+      laserOdometry2.pose.pose.orientation.z = geoQuat.x;
+      laserOdometry2.pose.pose.orientation.w = geoQuat.w;
+      laserOdometry2.pose.pose.position.x = transformMapped[3];
+      laserOdometry2.pose.pose.position.y = transformMapped[4];
+      laserOdometry2.pose.pose.position.z = transformMapped[5];
+      pubLaserOdometry2Pointer->publish(laserOdometry2);
+
+      laserOdometryTrans2.stamp_ = laserOdometry1.header.stamp;
+      laserOdometryTrans2.setRotation(tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w));
+      laserOdometryTrans2.setOrigin(tf::Vector3(transformMapped[3], transformMapped[4], transformMapped[5]));
+      tfBroadcaster2Pointer->sendTransform(laserOdometryTrans2);
+    }
+
+    status = ros::ok();
+    rate.sleep();
+  }*/
+
+
   ros::spin();
+  odometryOut.close();
 
   return 0;
 }

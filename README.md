@@ -39,7 +39,7 @@ $ catkin_make
 Running:
 ```
 $ roslaunch loam_velodyne_kitti_ros loam_velodyne_kitti_ros.launch 
-#$ rosrun loam_velodyne_kitti_ros record_loam_odometry.py 
-#$ ./src/loam_velodyne_kitti_ros/scripts/plot_trajectory LOAMTrajectory.txt
 ```
 
+#$ rosrun loam_velodyne_kitti_ros record_loam_odometry.py 
+#$ ./src/loam_velodyne_kitti_ros/scripts/plot_trajectory LOAMTrajectory.txt

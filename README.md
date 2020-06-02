@@ -3,7 +3,7 @@ This package is a modified copy of the ROS Indigo versions of the LOAM algorithm
 
 [loam_velodyne](http://docs.ros.org/indigo/api/loam_velodyne/html/files.html)
 [loam_back_and_forth](http://docs.ros.org/indigo/api/loam_back_and_forth/html/files.html)
-[loam_velodyne](http://docs.ros.org/indigo/api/loam_continuous/html/files.html)
+[loam_continuous](http://docs.ros.org/indigo/api/loam_continuous/html/files.html)
  
 Main changes have been done in:
  

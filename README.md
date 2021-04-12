@@ -17,6 +17,10 @@ Also, transformToEnd() and transformToStart() functions have been modified since
 
 The separation of the Velodyne HDL-64's rings have been done according to [laboshinl's code](https://github.com/laboshinl/loam_velodyne)
 
+Here is an example of the sequence00 of the KITTI dataset:
+
+![Image of Sequence00](https://github.com/claydergc/loam_velodyne_kitti_ros/blob/master/sequence00.png)
+
 Before building the project, it is important to consider the KITTI Dataset file structure. All the KITTI dataset need to be in a same folder. This folder should have the following structure:
 
 ```bash
